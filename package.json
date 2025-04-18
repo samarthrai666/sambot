@@ -1,0 +1,24 @@
+{
+  "name": "sambot-backend",
+  "version": "1.0.0",
+  "description": "",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@alpacahq/alpaca-trade-api": "^3.1.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.5.0",
+    "express": "^5.1.0",
+    "fetch-cookie": "^3.1.0",
+    "fyers-api-v2": "^1.0.5",
+    "node-fetch": "^3.3.2",
+    "openai": "^4.95.0",
+    "tough-cookie": "^5.1.2"
+  }
+}

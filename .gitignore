@@ -1,0 +1,6 @@
+.env
+node_modules/
+ai-brain/venv/
+__pycache__/
+*.pyc
+*.log
