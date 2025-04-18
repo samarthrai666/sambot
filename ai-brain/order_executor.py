@@ -39,6 +39,12 @@ LOT_SIZE = {
 DEFAULT_LOT_SIZE = 50  # Default to NIFTY lot size
 
 
+from trade_tracking.trade_logger import TradeLogger
+
+# Initialize the logger 
+trade_logger = TradeLogger()
+
+
 def get_access_token():
     """
     Get or refresh Fyers API access token
@@ -114,6 +120,69 @@ def get_access_token():
     except Exception as e:
         logger.error(f"Failed to get Fyers access token: {str(e)}")
         return ""
+
+
+
+
+def place_order(index, strike, direction, lots, expiry):
+    # ... your existing code ...
+    
+    # After successfully placing the order, log it
+    trade_data = {
+        "index": index,
+        "signal": direction,
+        "entry_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "entry_price": price,  # Current price when entered
+        "quantity": lots * 15,
+        "strike": strike,
+        "expiry": expiry,
+        "status": "OPEN",
+        "stop_loss": stop_loss,
+        "target": target
+    }
+    
+    # Add psychology data if you have it
+    if "psychology" in context:
+        trade_data["psychology"] = context["psychology"]
+        
+    # Add detected patterns if you have them
+    if "patterns_detected" in context:
+        trade_data["patterns_detected"] = context["patterns_detected"]
+        
+    # Log the trade
+    trade_id = trade_logger.log_trade(trade_data)
+    
+    # Include trade_id in the response
+    response = {...}  # Your existing response
+    response["trade_id"] = trade_id
+    
+    return response
+
+    def update_trade(trade_id, exit_price=None, status="CLOSED"):
+    """
+    Update a trade when it's closed or modified.
+    """
+    update_data = {}
+    
+    if exit_price is not None:
+        update_data["exit_price"] = exit_price
+        update_data["exit_time"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
+    update_data["status"] = status
+    
+    # Update the trade
+    success = trade_logger.update_trade(trade_id, update_data)
+    
+    return success
+
+    # When closing a position or updating status:
+def update_trade_status(trade_id, exit_price, status="CLOSED"):
+    # Update trade with exit information
+    trade_logger.update_trade(trade_id, {
+        "exit_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "exit_price": exit_price,
+        "status": status
+    })
 
 
 def get_expiry_dates(index="NIFTY"):

@@ -2,12 +2,14 @@
 import { useRouter } from 'next/navigation'
 import Header from '@/components/Header'
 import { useState, useEffect } from 'react'
+import { Activity, BarChart2, Brain, TrendingUp, LineChart } from 'lucide-react'
 
 export default function Home() {
   const router = useRouter()
   const [mounted, setMounted] = useState(false)
   const [hoverSignal, setHoverSignal] = useState(false)
   const [hoverMarket, setHoverMarket] = useState(false)
+  const [hoverPerformance, setHoverPerformance] = useState(false)
   
   // Animation on mount
   useEffect(() => {
@@ -51,7 +53,7 @@ export default function Home() {
             <div className="absolute inset-0 bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity"></div>
             <div className="absolute inset-0.5 bg-white rounded-lg z-10"></div>
             <div className="relative z-20 px-8 py-4 flex items-center space-x-3">
-              <span className="text-green-600 text-xl">📈</span>
+              <Activity className="w-5 h-5 text-green-600" />
               <span className="font-medium text-gray-800">View Live Signal</span>
               <svg className="w-5 h-5 text-green-600 transform transition-transform group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
@@ -63,6 +65,24 @@ export default function Home() {
           <button
             className={`relative group overflow-hidden rounded-xl transition-all duration-300 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}
             style={{ transitionDelay: '400ms' }}
+            onClick={() => router.push('/performance')}
+            onMouseEnter={() => setHoverPerformance(true)}
+            onMouseLeave={() => setHoverPerformance(false)}
+          >
+            <div className={`absolute inset-0 bg-gradient-to-br from-purple-500 to-indigo-600 transform transition-transform duration-500 ${hoverPerformance ? 'scale-105' : 'scale-100'}`}></div>
+            <div className="absolute inset-0 bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+            <div className="absolute inset-0.5 bg-white rounded-lg z-10"></div>
+            <div className="relative z-20 px-8 py-4 flex items-center space-x-3">
+              <LineChart className="w-5 h-5 text-indigo-600" />
+              <span className="font-medium text-gray-800">Performance</span>
+              <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 ml-1">New</span>
+            </div>
+            <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-r from-transparent via-indigo-400/20 to-transparent -translate-x-full animate-shimmer"></div>
+          </button>
+          
+          <button
+            className={`relative group overflow-hidden rounded-xl transition-all duration-300 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}
+            style={{ transitionDelay: '600ms' }}
             onClick={() => alert('Market Data Coming Soon')}
             onMouseEnter={() => setHoverMarket(true)}
             onMouseLeave={() => setHoverMarket(false)}
@@ -71,7 +91,7 @@ export default function Home() {
             <div className="absolute inset-0 bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity"></div>
             <div className="absolute inset-0.5 bg-white rounded-lg z-10"></div>
             <div className="relative z-20 px-8 py-4 flex items-center space-x-3">
-              <span className="text-teal-600 text-xl">📊</span>
+              <BarChart2 className="w-5 h-5 text-teal-600" />
               <span className="font-medium text-gray-800">Market Data</span>
               <span className="text-xs px-2 py-0.5 rounded-full bg-teal-100 text-teal-700 ml-1">Coming Soon</span>
             </div>
@@ -79,7 +99,7 @@ export default function Home() {
           </button>
         </div>
         
-        <div className={`mt-12 flex gap-4 transition-all duration-1000 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`} style={{ transitionDelay: '600ms' }}>
+        <div className={`mt-12 flex gap-4 transition-all duration-1000 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`} style={{ transitionDelay: '800ms' }}>
           <div className="flex items-center gap-2 text-sm text-gray-600 border border-green-200 bg-white/80 shadow-sm rounded-full px-4 py-1.5">
             <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
             <span>All Systems Online</span>

@@ -23,6 +23,8 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 app.use(cors());
 app.use(express.json());
 app.use(morgan('dev')); // Logging
+const { spawn } = require('child_process');
+
 
 // Cookie setup for NSE scraping
 const jar = new CookieJar();
@@ -307,6 +309,80 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', time: new Date().toISOString() });
 });
 
+app.get('/api/performance', async (req, res) => {
+  try {
+    const options = {
+      index: req.query.index,
+      startDate: req.query.startDate,
+      endDate: req.query.endDate,
+      outputDir: path.join(__dirname, 'sambot-frontend/public/images')
+    };
+    
+    const result = await tradeTrackingApi.generateDashboard(options);
+    res.json(result);
+  } catch (error) {
+    console.error('Error generating dashboard:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Add an endpoint for metrics only (faster)
+app.get('/api/metrics', async (req, res) => {
+  try {
+    const options = {
+      index: req.query.index,
+      startDate: req.query.startDate,
+      endDate: req.query.endDate,
+      includePatterns: req.query.patterns === 'true',
+      includePsychology: req.query.psychology === 'true'
+    };
+    
+    const result = await tradeTrackingApi.getPerformanceMetrics(options);
+    res.json(result);
+  } catch (error) {
+    console.error('Error getting metrics:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Add advanced strategy endpoint
+app.post('/strategies', async (req, res) => {
+  try {
+    const { index, direction, expiry, width } = req.body;
+    
+    // This would call your Python code in production
+    // const strategy = await executeStrategy(index, direction, expiry, width);
+    
+    // Mock response for development
+    const strategy = {
+      strategy: direction === 'BULL' ? 'BULL CALL SPREAD' : 'BEAR PUT SPREAD',
+      index,
+      buy_leg: `${index}${expiry}${index === 'NIFTY' ? '22500' : '48500'}${direction === 'BULL' ? 'CE' : 'PE'}`,
+      sell_leg: `${index}${expiry}${index === 'NIFTY' ? '22600' : '48600'}${direction === 'BULL' ? 'CE' : 'PE'}`,
+      max_profit: 2500,
+      max_loss: 7500,
+      breakeven: index === 'NIFTY' ? '22550' : '48550'
+    };
+    
+    res.json(strategy);
+  } catch (err) {
+    console.error("Strategy generation error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Update trade status endpoint
+app.post('/api/trades/:tradeId/update', async (req, res) => {
+  try {
+    const tradeId = req.params.tradeId;
+    const result = await tradeTrackingApi.updateTrade(tradeId, req.body);
+    res.json(result);
+  } catch (error) {
+    console.error('Error updating trade:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Main signals endpoint
 app.get('/signals', async (req, res) => {
   try {
@@ -581,6 +657,67 @@ app.listen(PORT, () => {
     console.log('🤖 Auto-execution mode is ENABLED');
   } else {
     console.log('🧮 Auto-execution mode is DISABLED');
+  }
+});
+
+
+// server.js (add to your existing server code)
+const notificationService = require('./services/notificationService');
+
+// Add this to your signal endpoint
+app.get('/signals', async (req, res) => {
+  try {
+    // Your existing signal generation code...
+    
+    // If a new signal is detected that wasn't present before
+    if (isNewSignal) {
+      await notificationService.sendSignalAlert(
+        signal.index,
+        signal.signal,
+        signal.entry,
+        signal.stop_loss,
+        signal.target
+      );
+    }
+    
+    res.json(signal);
+  } catch (err) {
+    console.error("Error in /signals route:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Add to your order execution endpoint
+app.post('/execute', async (req, res) => {
+  try {
+    const { index, signal, entry, qty } = req.body;
+    
+    // Your existing order execution code...
+    
+    // After successful execution
+    await notificationService.sendExecutionAlert(index, signal, entry, qty);
+    
+    res.json({ status: 'success', message: 'Order executed' });
+  } catch (err) {
+    console.error("Error in /execute route:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Add to your exit position endpoint
+app.post('/exit', async (req, res) => {
+  try {
+    const { index, signal, entry, exit, pnl } = req.body;
+    
+    // Your existing position exit code...
+    
+    // After successful exit
+    await notificationService.sendExitAlert(index, signal, entry, exit, pnl);
+    
+    res.json({ status: 'success', message: 'Position exited' });
+  } catch (err) {
+    console.error("Error in /exit route:", err);
+    res.status(500).json({ error: err.message });
   }
 });
 

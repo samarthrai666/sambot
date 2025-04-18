@@ -85,6 +85,13 @@ def _fetch_with_enhanced_system(index):
         # Get position suggestions
         suggestion = manager.get_trade_suggestions()
         
+        # Run psychological analysis
+        try:
+            psych_analysis = manager.run_psychological_analysis()
+        except Exception as e:
+            logger.warning(f"Psychological analysis failed: {str(e)}")
+            psych_analysis = {"error": f"Psychological analysis failed: {str(e)}"}
+        
         # Generate visual dashboard
         try:
             dashboard_path = os.path.join(output_dir, f"{index}_dashboard.png")
@@ -95,13 +102,69 @@ def _fetch_with_enhanced_system(index):
         
         # Format the result
         if suggestion and suggestion.get('action') in ['EXECUTE', 'MONITOR']:
+            # Extract key psychological insights if available
+            market_psychology = {}
+            confidence_adjustment = 0
+            additional_reason = ""
+            
+            if "error" not in psych_analysis:
+                # Get psychological components
+                fear_greed = psych_analysis.get('fear_greed_index', {})
+                contrarian = psych_analysis.get('contrarian_signals', {})
+                
+                # Get sentiment data
+                sentiment = fear_greed.get('interpretation', 'Neutral')
+                contrarian_bias = contrarian.get('overall_contrarian_bias', 'Neutral')
+                
+                # Store psychology data
+                market_psychology = {
+                    "fear_greed_score": fear_greed.get('score'),
+                    "sentiment": sentiment,
+                    "contrarian_bias": contrarian_bias,
+                    "smart_money_active": bool(psych_analysis.get('smart_money_analysis', {}).get('smart_money_signs', []))
+                }
+                
+                # Adjust confidence based on psychological analysis
+                signal_type = suggestion.get('signal', '')
+                
+                # If contrarian signals align with the suggested trade, boost confidence
+                if contrarian_bias == 'Bullish' and signal_type == 'BUY CALL':
+                    confidence_adjustment = 0.1
+                    additional_reason = " Market sentiment indicates potential contrarian bullish opportunity."
+                elif contrarian_bias == 'Bearish' and signal_type == 'BUY PUT':
+                    confidence_adjustment = 0.1
+                    additional_reason = " Market sentiment indicates potential contrarian bearish opportunity."
+                
+                # Add relevant psychological insights to patterns
+                patterns = []
+                
+                # Add psychological patterns
+                if fear_greed.get('score', 50) < 20:
+                    patterns.append("Extreme Fear (Contrarian Bullish)")
+                elif fear_greed.get('score', 50) > 80:
+                    patterns.append("Extreme Greed (Contrarian Bearish)")
+                    
+                # Add key psychological insights from contrarian signals
+                for signal in contrarian.get('signals', []):
+                    patterns.append(signal.get('signal', ''))
+                    
+                # Add smart money patterns
+                for sign in psych_analysis.get('smart_money_analysis', {}).get('smart_money_signs', []):
+                    patterns.append(sign.get('pattern', ''))
+            
+            # Adjust confidence with psychological factors
+            original_confidence = suggestion.get('confidence', 0)
+            adjusted_confidence = min(original_confidence + confidence_adjustment, 1.0)
+            
+            # Prepare the result
             result = {
                 "underlying": underlying_value,
                 "option_chain": [],  # We'll replace the raw option chain with analysis
                 "pcr": analysis.get('pcr', 0),
                 "max_pain": analysis.get('max_pain', 0),
                 "signal": suggestion.get('signal', 'WAIT'),
-                "confidence": suggestion.get('confidence', 0),
+                "confidence": adjusted_confidence,
+                "confidence_reason": suggestion.get('reason', '') + additional_reason,
                 "entry": suggestion.get('entry', 0),
                 "strike": suggestion.get('strike', 0),
                 "stop_loss": suggestion.get('stop_loss', 0),
@@ -113,9 +176,26 @@ def _fetch_with_enhanced_system(index):
                 "dashboard_path": dashboard_path,
                 "key_levels": analysis.get('key_levels', {}),
                 "momentum": analysis.get('momentum', {}),
-                "iv_skew": analysis.get('iv_skew', {})
+                "market_psychology": market_psychology
             }
+            
+            # Add trends based on combined technical and psychological analysis
+            if analysis.get('momentum', {}).get('oi_momentum') == 'Bullish' and market_psychology.get('fear_greed_score', 50) > 60:
+                result["trend"] = "STRONGLY BULLISH"
+            elif analysis.get('momentum', {}).get('oi_momentum') == 'Bullish':
+                result["trend"] = "BULLISH"
+            elif analysis.get('momentum', {}).get('oi_momentum') == 'Bearish' and market_psychology.get('fear_greed_score', 50) < 40:
+                result["trend"] = "STRONGLY BEARISH"
+            elif analysis.get('momentum', {}).get('oi_momentum') == 'Bearish':
+                result["trend"] = "BEARISH"
+            else:
+                result["trend"] = "NEUTRAL"
+                
+            # Add patterns detected
+            if "patterns" in locals():
+                result["patterns_detected"] = patterns
         else:
+            # No actionable signal
             result = {
                 "underlying": underlying_value,
                 "option_chain": [],
@@ -125,6 +205,12 @@ def _fetch_with_enhanced_system(index):
                 "confidence": 0,
                 "reason": "No actionable signals detected"
             }
+            
+            # Add psychological reasons for waiting if available
+            if "error" not in psych_analysis:
+                fear_greed = psych_analysis.get('fear_greed_index', {})
+                if fear_greed.get('score', 50) > 40 and fear_greed.get('score', 50) < 60:
+                    result["reason"] += " Market sentiment is neutral, suggesting indecision."
         
         # Save a complete report for reference
         report_path = os.path.join(output_dir, f"{index}_complete_report.json")
@@ -133,6 +219,7 @@ def _fetch_with_enhanced_system(index):
                 "analysis": analysis,
                 "signals": signals,
                 "suggestion": suggestion,
+                "psychology": psych_analysis,
                 "result": result
             }, f, indent=2)
         
@@ -242,6 +329,61 @@ def _calculate_max_pain(option_data, underlying_value):
     return min_pain["strike"]
 
 
+def get_market_psychology(index="NIFTY"):
+    """
+    Get market psychology analysis without generating trading signals.
+    
+    Args:
+        index (str): Index to analyze
+        
+    Returns:
+        dict: Market psychology analysis
+    """
+    if not NEW_SYSTEM_AVAILABLE:
+        return {"error": "Enhanced option chain system not available"}
+        
+    try:
+        # Create an option chain manager
+        manager = OptionChainManager(index=index)
+        
+        # Fetch and analyze the data
+        if not manager.fetch_data():
+            return {"error": "Failed to fetch option chain data"}
+            
+        manager.analyze()
+        
+        # Run psychological analysis
+        try:
+            psych_analysis = manager.run_psychological_analysis()
+        except Exception as e:
+            logger.warning(f"Psychological analysis failed: {str(e)}")
+            return {"error": f"Psychological analysis failed: {str(e)}"}
+        
+        # Extract key metrics
+        fear_greed = psych_analysis.get('fear_greed_index', {})
+        smart_money = psych_analysis.get('smart_money_analysis', {})
+        contrarian = psych_analysis.get('contrarian_signals', {})
+        
+        # Build a simplified result
+        result = {
+            "index": index,
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "underlying_value": manager.fetcher.underlying_value,
+            "fear_greed_score": fear_greed.get('score'),
+            "sentiment": fear_greed.get('interpretation'),
+            "description": fear_greed.get('description'),
+            "contrarian_bias": contrarian.get('overall_contrarian_bias'),
+            "smart_money_signs": [sign.get('pattern') for sign in smart_money.get('smart_money_signs', [])],
+            "retail_positioning": smart_money.get('retail_positioning', {}).get('activity'),
+            "summary": psych_analysis.get('summary', [])
+        }
+        
+        return result
+    except Exception as e:
+        logger.error(f"Error in market psychology analysis: {str(e)}")
+        return {"error": str(e)}
+
+
 if __name__ == "__main__":
     # Test the module
     result = fetch_nse_option_chain("NIFTY")
@@ -253,9 +395,22 @@ if __name__ == "__main__":
         print(f"PCR: {result['pcr']}")
         print(f"Max Pain: {result['max_pain']}")
         
-        if 'signal' in result:
-            print(f"Signal: {result['signal']}")
-            print(f"Confidence: {result['confidence']}")
+        if 'market_psychology' in result:
+            print(f"Fear & Greed Score: {result['market_psychology']['fear_greed_score']}")
+            print(f"Market Sentiment: {result['market_psychology']['sentiment']}")
             
         if 'dashboard_path' in result:
             print(f"Dashboard saved to: {result['dashboard_path']}")
+            
+    # Test just the psychology analysis
+    psychology = get_market_psychology("NIFTY")
+    if "error" not in psychology:
+        print("\nMarket Psychology Analysis:")
+        print(f"Fear & Greed Score: {psychology['fear_greed_score']}")
+        print(f"Market Sentiment: {psychology['sentiment']}")
+        print(f"Contrarian Bias: {psychology['contrarian_bias']}")
+        
+        if psychology['smart_money_signs']:
+            print("Smart Money Patterns Detected:")
+            for pattern in psychology['smart_money_signs']:
+                print(f"- {pattern}")
